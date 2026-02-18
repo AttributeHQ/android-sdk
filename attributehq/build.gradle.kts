@@ -64,3 +64,7 @@ afterEvaluate {
         }
     }
 }
+
+tasks.withType<Jar> {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
