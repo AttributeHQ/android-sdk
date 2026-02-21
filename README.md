@@ -1,6 +1,6 @@
 # AttributeHQ Android SDK
 
-Lightweight Android attribution SDK for [AttributeHQ](https://attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, GAID collection, and offline event queueing.
+Lightweight Android attribution SDK for [AttributeHQ](https://api.attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, GAID collection, and offline event queueing.
 
 ## Requirements
 
@@ -83,7 +83,6 @@ Match types: `DEVICE_ID`, `FINGERPRINT`, `INSTALL_REFERRER`, `ORGANIC`.
 |--------|------|---------|-------------|
 | `apiKey` | `String` | Required | Your API key (format: `ak_xxx`) |
 | `appId` | `String` | Required | Your app UUID |
-| `baseUrl` | `String` | `https://attributehq.com` | API endpoint |
 | `batchSize` | `Int` | `10` | Events per batch before auto-flush |
 | `flushIntervalSeconds` | `Long` | `5` | Auto-flush interval (seconds) |
 | `maxQueueSize` | `Int` | `100` | Max events in offline queue |

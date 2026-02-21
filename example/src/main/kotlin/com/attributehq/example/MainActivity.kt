@@ -26,7 +26,6 @@ class MainActivity : AppCompatActivity() {
             appId = "00000000-0000-0000-0000-000000000000"
         ).apply {
             enableDebugLogging = true
-            baseUrl = "https://attributehq.com"
         }
 
         AttributeHQ.initialize(this, config)

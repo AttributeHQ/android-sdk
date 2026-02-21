@@ -9,7 +9,6 @@ package com.attributehq.sdk
 data class AttributeHQConfiguration(
     val apiKey: String,
     val appId: String,
-    var baseUrl: String = "https://attributehq.com",
     var batchSize: Int = 10,
     var flushIntervalSeconds: Long = 5L,
     var maxQueueSize: Int = 100,
@@ -36,7 +35,7 @@ internal data class ResolvedConfiguration(
             return ResolvedConfiguration(
                 apiKey = config.apiKey,
                 appId = config.appId,
-                baseUrl = config.baseUrl.trimEnd('/'),
+                baseUrl = "https://api.attributehq.com",
                 batchSize = config.batchSize.coerceIn(1, 100),
                 flushIntervalSeconds = config.flushIntervalSeconds.coerceAtLeast(1L),
                 maxQueueSize = config.maxQueueSize.coerceAtLeast(10),

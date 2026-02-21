@@ -12,7 +12,7 @@ class ConfigurationTest {
 
         assertEquals("ak_test123", resolved.apiKey)
         assertEquals("app-uuid-123", resolved.appId)
-        assertEquals("https://attributehq.com", resolved.baseUrl)
+        assertEquals("https://api.attributehq.com", resolved.baseUrl)
         assertEquals(10, resolved.batchSize)
         assertEquals(5L, resolved.flushIntervalSeconds)
         assertEquals(100, resolved.maxQueueSize)
@@ -60,14 +60,6 @@ class ConfigurationTest {
         config.flushIntervalSeconds = 0
         val resolved = ResolvedConfiguration.resolve(config)
         assertEquals(1L, resolved.flushIntervalSeconds)
-    }
-
-    @Test
-    fun `baseUrl trailing slash stripped`() {
-        val config = AttributeHQConfiguration(apiKey = "ak_test", appId = "app-uuid")
-        config.baseUrl = "https://api.example.com///"
-        val resolved = ResolvedConfiguration.resolve(config)
-        assertEquals("https://api.example.com", resolved.baseUrl)
     }
 
     @Test
