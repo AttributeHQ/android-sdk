@@ -122,6 +122,10 @@ The SDK declares these permissions in its manifest (merged automatically):
 - `trackRevenue` records analytics; it does not validate a store transaction or prove ad-network delivery.
 - The app developer remains responsible for privacy disclosures and consent. Android provider-sharing controls and paid attribution validation are not part of this baseline.
 
+## Unreleased privacy controls
+
+The working tree targets `1.1.0-beta.2` and adds persistent collection enable/disable, advertising-sharing preferences and opt-in sandbox evidence upload. These are not in the published beta. See [privacy controls](PRIVACY_CONTROLS.md) for behavior, deployment requirements and the remaining Android partner-delivery limitation.
+
 ## Data collection
 
 See [the SDK data inventory](DATA_COLLECTION.md) when preparing your app’s privacy disclosures.

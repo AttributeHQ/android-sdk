@@ -28,7 +28,10 @@ object AttributeHQ {
     private var installReferrer: String? = null
     private var session: SessionManager? = null
     private var queue: EventQueue? = null
+    private var evidenceUploader: EvidenceUploader? = null
     private var reachability: Reachability? = null
+    @Volatile private var privacy: PrivacyState? = null
+    private var appContext: Context? = null
     private var isInitialized = false
     private var installInFlight = false
     private var referrerReady = false
@@ -48,6 +51,9 @@ object AttributeHQ {
      */
     fun initialize(context: Context, configuration: AttributeHQConfiguration) {
         val resolved = ResolvedConfiguration.resolve(configuration)
+        val initialCollection = configuration.initialCollectionEnabled
+        val initialSharing = configuration.initialAdvertisingSharing
+        val initialTracking = configuration.initialApplicationTrackingEnabled
         executor.execute {
             if (isInitialized) {
                 Logger.warn("SDK already initialized")
@@ -64,45 +70,156 @@ object AttributeHQ {
             // Initialize storage
             val storage = Storage.initialize(appContext, resolved.appId)
 
-            // Get or create persistent device ID
-            this.deviceId = getOrCreateDeviceId(storage) ?: run {
-                Logger.error("Cannot initialize SDK: installation identity could not be saved")
-                return@execute
-            }
-            // Install identity is app-scoped and never replaced by an advertising ID.
-            InstallReferrerManager.getInstallReferrer(appContext, executor) { referrer ->
-                executor.execute {
-                    if (!referrer.isNullOrBlank()) storage.setString("install_referrer", referrer)
-                    this.installReferrer = referrer?.takeIf { it.isNotBlank() } ?: storage.getString("install_referrer")
-                    this.referrerReady = true
-                    trackInstallIfNeeded(appContext, storage)
-                }
-            }
-
-            // Initialize session manager
-            this.session = SessionManager(storage)
-
-            // Initialize reachability
-            this.reachability = Reachability.initialize(appContext)
-
-            // Initialize event queue
-            val eventQueue = EventQueue(resolved, storage, executor)
-            eventQueue.onFlush = { events, completion ->
-                sendEvents(events, completion)
-            }
-            eventQueue.setupReachabilityListener()
-            this.queue = eventQueue
-
-            // Track install on first launch
-            trackInstallIfNeeded(appContext, storage)
+            this.appContext = appContext
+            val state = PrivacyState(storage)
+            privacy = state
+            initialCollection?.let { state.setEnabled(it) }
+            initialSharing?.let { state.setSharing(it) }
+            initialTracking?.let { storage.setBool("application_tracking_enabled", it) }
+            if (!state.enabled) storage.setCollectionEnabled(false)
+            if (state.enabled) startCollection(appContext, storage)
 
             // App lifecycle observer
             setupLifecycleObserver(appContext, storage)
-            executor.scheduleWithFixedDelay({ trackInstallIfNeeded(appContext, storage) },
+            executor.scheduleWithFixedDelay({
+                trackInstallIfNeeded(appContext, storage)
+                if (isCollectionEnabled()) evidenceUploader?.flush()
+            },
                 30, 30, java.util.concurrent.TimeUnit.SECONDS)
 
             isInitialized = true
             Logger.debug("SDK initialized successfully")
+        }
+    }
+
+    private fun startCollection(context: Context, storage: Storage) {
+        val state = privacy ?: return
+        val ticket = state.ticket() ?: return
+        val resolved = config ?: return
+        deviceId = getOrCreateDeviceId(storage) ?: return
+        if (resolved.enableSandboxEvidenceUpload && evidenceUploader == null) {
+            evidenceUploader = EvidenceUploader(storage, resolved.appId, deviceId!!,
+                dispatch = { task -> executor.execute(task) }, send = { body, acknowledge ->
+                    val permission = state.ticket()
+                    if (permission == null) acknowledge(null)
+                    else NetworkClient.post("/v1/mobile-evidence", body, resolved,
+                        maySend = { state.permits(permission) }) { result ->
+                        val id = result.getOrNull()?.optJSONObject("data")?.opt("observation_id") as? String
+                        acknowledge(if (state.permits(permission)) id else null)
+                    }
+                })
+        }
+        refreshEvidenceInternal()
+        session = SessionManager(storage)
+        reachability = Reachability.initialize(context)
+        if (queue == null) {
+            queue = EventQueue(resolved, storage, executor).also { eventQueue ->
+                eventQueue.onFlush = { events, completion -> sendEvents(events, completion) }
+                eventQueue.setupReachabilityListener()
+            }
+        } else queue?.resume()
+        referrerReady = false
+        installInFlight = false
+        InstallReferrerManager.getInstallReferrer(context, executor) { referrer ->
+            executor.execute {
+                if (!state.permits(ticket)) return@execute
+                if (!referrer.isNullOrBlank()) storage.setString("install_referrer", referrer)
+                installReferrer = referrer?.takeIf { it.isNotBlank() } ?: storage.getString("install_referrer")
+                referrerReady = true
+                trackInstallIfNeeded(context, storage)
+            }
+        }
+    }
+
+    /**
+     * Apply collection choice in SDK call order. Disabling discards pending events
+     * and local user/session state. Requests already started may finish; this is
+     * not server erasure. Completion runs on the main thread after local application
+     * and reports whether the preference was persisted. A failed write stays disabled
+     * for this process. Call only after initialize().
+     */
+    fun setCollectionEnabled(enabled: Boolean, completion: ((Boolean) -> Unit)? = null) {
+        executor.execute {
+            val state = privacy
+            val context = appContext
+            var saved = false
+            if (isInitialized && state != null && context != null) {
+                if (enabled && state.enabled) saved = true
+                else {
+                    // Clear memory first so a late transport acknowledgement cannot restore it.
+                    queue?.suspendAndClear()
+                    val purged = evidenceUploader?.discardPending() ?: true
+                    saved = state.setEnabled(enabled) && purged
+                    session = null
+                    installInFlight = false
+                    referrerReady = false
+                    if (state.enabled) startCollection(context, Storage.getInstance())
+                }
+            }
+            completion?.let { callback ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post { callback(saved) }
+            }
+        }
+    }
+
+    /** False before initialization and while collection is disabled. */
+    fun isCollectionEnabled(): Boolean = privacy?.enabled == true
+
+    /** Persist preference and report a fresh observation when sandbox evidence upload is enabled. */
+    fun setAdvertisingSharing(preference: AdvertisingSharing, completion: ((Boolean) -> Unit)? = null) {
+        executor.execute {
+            val saved = if (isInitialized) privacy?.setSharing(preference) == true else false
+            if (saved) refreshEvidenceInternal()
+            completion?.let { callback ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post { callback(saved) }
+            }
+        }
+    }
+
+    fun getAdvertisingSharing(): AdvertisingSharing = privacy?.sharing ?: AdvertisingSharing.UNKNOWN
+
+    /** App-level decision, not an Android system permission or an advertising identifier. */
+    fun setApplicationTrackingEnabled(enabled: Boolean, completion: ((Boolean) -> Unit)? = null) {
+        executor.execute {
+            val saved = if (isInitialized) Storage.getInstance().setBool("application_tracking_enabled", enabled) else false
+            if (saved) refreshEvidenceInternal()
+            completion?.let { callback -> android.os.Handler(android.os.Looper.getMainLooper()).post { callback(saved) } }
+        }
+    }
+
+    fun refreshConversionEvidence() { executor.execute { refreshEvidenceInternal() } }
+
+    private fun captureEvidence(): JSONObject {
+        val tracking = try { Storage.getInstance().getBool("application_tracking_enabled") } catch (_: Exception) { false }
+        return ConversionEvidenceCollector.capture(appContext!!, tracking, privacy!!.sharing)
+    }
+
+    private fun refreshEvidenceInternal() {
+        if (!isCollectionEnabled()) return
+        val uploader = evidenceUploader ?: return
+        val context = try { captureEvidence() } catch (_: Exception) { null }
+        uploader.observe(context)
+    }
+
+    /** Capture immutable event-time evidence, not a conversion or delivery grant.
+     * Retry the same eventId to retrieve the original ticket. Requires explicit sandbox opt-in.
+     */
+    fun prepareConversionEvidence(eventId: String, completion: (Result<ConversionEvidenceTicket>) -> Unit) {
+        executor.execute {
+            val result = runCatching {
+                check(isCollectionEnabled()) { "Collection disabled" }
+                val uploader = evidenceUploader ?: error("Sandbox evidence upload is not enabled")
+                uploader.ticket(eventId) ?: uploader.retain(eventId, captureEvidence())
+            }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { completion(result) }
+        }
+    }
+
+    /** Call only after your authenticated backend durably accepts the event ticket. */
+    fun completeConversionEvidence(eventId: String, completion: ((Boolean) -> Unit)? = null) {
+        executor.execute {
+            val completed = isCollectionEnabled() && evidenceUploader?.complete(eventId) == true
+            completion?.let { callback -> android.os.Handler(android.os.Looper.getMainLooper()).post { callback(completed) } }
         }
     }
 
@@ -163,20 +280,21 @@ object AttributeHQ {
 
             val props = snapshot.toMutableMap()
             props["user_id"] = userId
-            track("identify", props)
+            queue?.enqueue(QueuedEvent("identify", props, System.currentTimeMillis(), session!!.getSessionId()))
 
             Logger.debug("User identified")
         }
     }
 
     /** App-scoped installation ID; null until asynchronous initialization completes. */
-    fun getAppInstanceId(): String? = deviceId
+    fun getAppInstanceId(): String? = if (isCollectionEnabled()) deviceId else null
 
     /** Manually flush all queued events to the server. */
     fun flush() {
         executor.execute {
             if (!ensureInitialized()) return@execute
             queue?.flush()
+            evidenceUploader?.flush()
         }
     }
 
@@ -186,6 +304,7 @@ object AttributeHQ {
      * @return Attribution result, or null if install hasn't been tracked yet
      */
     fun getAttribution(): AttributionResult? {
+        if (!isCollectionEnabled()) return null
         val storage = try { Storage.getInstance() } catch (_: Exception) { return null }
         val jsonStr = storage.getJsonString("attribution") ?: return null
         return try {
@@ -212,6 +331,8 @@ object AttributeHQ {
     // region Private: Install Tracking
 
     private fun trackInstallIfNeeded(context: Context, storage: Storage) {
+        val state = privacy ?: return
+        val ticket = state.ticket() ?: return
         if (!referrerReady || installInFlight) return
         if (storage.getBool("installed")) {
             Logger.debug("Install already tracked")
@@ -238,8 +359,10 @@ object AttributeHQ {
         ).toJson()
 
         installInFlight = true
-        NetworkClient.post(path = ApiContract.INSTALLS_PATH, body = body, config = config) { result ->
+        NetworkClient.post(path = ApiContract.INSTALLS_PATH, body = body, config = config,
+            maySend = { state.permits(ticket) }) { result ->
             executor.execute {
+                if (!state.permits(ticket)) return@execute
                 installInFlight = false
                 val data = ApiContract.installAttribution(result.getOrNull())
                 if (data != null) {
@@ -258,6 +381,8 @@ object AttributeHQ {
     // region Private: Event Sending
 
     private fun sendEvents(events: List<QueuedEvent>, completion: (Boolean) -> Unit) {
+        val state = privacy ?: run { completion(false); return }
+        val ticket = state.ticket() ?: run { completion(false); return }
         val config = config ?: run { completion(false); return }
         val deviceId = deviceId ?: run { completion(false); return }
 
@@ -271,9 +396,10 @@ object AttributeHQ {
         NetworkClient.post(
             path = ApiContract.EVENTS_PATH,
             body = body,
-            config = config
+            config = config,
+            maySend = { state.permits(ticket) }
         ) { result ->
-            completion(ApiContract.acceptedEvents(result.getOrNull(), events.size))
+            completion(state.permits(ticket) && ApiContract.acceptedEvents(result.getOrNull(), events.size))
         }
     }
 
@@ -288,7 +414,7 @@ object AttributeHQ {
                 ProcessLifecycleOwner.get().lifecycle.addObserver(
                     object : DefaultLifecycleObserver {
                         override fun onStart(owner: LifecycleOwner) {
-                            executor.execute { trackInstallIfNeeded(context, storage) }
+                            executor.execute { trackInstallIfNeeded(context, storage); refreshEvidenceInternal() }
                         }
                         override fun onStop(owner: LifecycleOwner) {
                             Logger.debug("App entering background, flushing events...")
@@ -311,7 +437,7 @@ object AttributeHQ {
             Logger.warn("SDK not initialized. Call initialize() first.")
             return false
         }
-        return true
+        return isCollectionEnabled() && session != null
     }
 
     // endregion

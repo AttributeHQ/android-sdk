@@ -11,11 +11,12 @@ internal object NetworkClient {
     }
 
     fun post(path: String, body: JSONObject, config: ResolvedConfiguration,
-             callback: (Result<JSONObject>) -> Unit) {
+             maySend: () -> Boolean = { true }, callback: (Result<JSONObject>) -> Unit) {
         val payload = body.toString()
         executor.execute {
             var connection: HttpURLConnection? = null
             val result = try {
+                check(maySend()) { "Collection disabled or request superseded" }
                 connection = URL("${config.baseUrl}$path").openConnection() as HttpURLConnection
                 connection.apply {
                     requestMethod = "POST"
@@ -26,6 +27,7 @@ internal object NetworkClient {
                     readTimeout = config.requestTimeoutMs.toInt()
                     doOutput = true
                 }
+                check(maySend()) { "Collection disabled or request superseded" }
                 connection.outputStream.bufferedWriter(Charsets.UTF_8).use { it.write(payload) }
                 val status = connection.responseCode
                 if (status !in 200..299) throw Exception("HTTP $status")

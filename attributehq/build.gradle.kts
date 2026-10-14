@@ -58,7 +58,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.attributehq"
                 artifactId = "sdk"
-                version = "1.1.0-beta.1"
+                version = "1.1.0-beta.2"
 
                 pom {
                     name.set("AttributeHQ Android SDK")
@@ -82,6 +82,7 @@ tasks.withType<Jar> {
 
 // Optional pre-fetched runtime directory for reproducible offline validation.
 tasks.withType<Test>().configureEach {
+    providers.gradleProperty("evidenceFixtureOutput").orNull?.let { systemProperty("evidenceFixtureOutput", it) }
     providers.gradleProperty("robolectricDependencyDir").orNull?.let { directory ->
         systemProperty("robolectric.offline", "true")
         systemProperty("robolectric.dependency.dir", directory)

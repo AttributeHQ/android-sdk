@@ -17,6 +17,8 @@ internal class EventQueue(
 ) {
     private val queue = mutableListOf<QueuedEvent>()
     private var isFlushing = false
+    private var suspended = false
+    private var generation = 0L
     private var flushTimerFuture: ScheduledFuture<*>? = null
 
     /**
@@ -33,6 +35,7 @@ internal class EventQueue(
     /** Add an event to the queue. Auto-flushes when batch size is reached. */
     @Synchronized
     fun enqueue(event: QueuedEvent) {
+        if (suspended) return
         // Never evict an event whose delivery may already be in flight.
         if (queue.size >= config.maxQueueSize) {
             Logger.warn("Event queue full; new event was not queued")
@@ -52,7 +55,7 @@ internal class EventQueue(
     /** Flush pending events to the server. */
     @Synchronized
     fun flush(completion: (() -> Unit)? = null) {
-        if (isFlushing || queue.isEmpty()) {
+        if (suspended || isFlushing || queue.isEmpty()) {
             completion?.invoke()
             return
         }
@@ -66,12 +69,14 @@ internal class EventQueue(
         val sender = onFlush ?: run { completion?.invoke(); return }
         if (!persist()) { completion?.invoke(); return }
         isFlushing = true
+        val attemptGeneration = generation
         val batch = queue.take(config.batchSize).map { QueuedEvent.fromJson(it.toJson()) }
         val ids = batch.map { it.eventId }.toSet()
         val completed = java.util.concurrent.atomic.AtomicBoolean(false)
         val acknowledge: (Boolean) -> Unit = { success ->
             if (completed.compareAndSet(false, true)) {
                 synchronized(this) {
+                    if (attemptGeneration != generation) return@synchronized
                     if (success) {
                         queue.removeAll { it.eventId in ids }
                         persist()
@@ -88,6 +93,16 @@ internal class EventQueue(
 
     /** Number of events currently in the queue. */
     val count: Int get() = synchronized(this) { queue.size }
+
+    /** Invalidate callbacks before discarding memory; PrivacyState atomically purges disk. */
+    @Synchronized fun suspendAndClear() {
+        suspended = true
+        generation++
+        queue.clear()
+        isFlushing = false
+    }
+
+    @Synchronized fun resume() { suspended = false }
 
     /** Set up reachability listener to flush when network comes back. */
     fun setupReachabilityListener() {

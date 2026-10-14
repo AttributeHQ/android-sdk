@@ -63,6 +63,30 @@ internal class Storage internal constructor(context: Context, private val appId:
 
     private fun prefixed(key: String): String = "$keyPrefix$key"
 
+    /** Persist withdrawal and purge pending telemetry atomically. Keep installation identity. */
+    fun setCollectionEnabled(enabled: Boolean): Boolean {
+        val edit = prefs.edit().putBoolean(prefixed("collection_enabled"), enabled)
+        if (!enabled) {
+            edit.remove(prefixed("event_queue")).remove(prefixed("user_id"))
+                .remove(prefixed("session_id")).remove(prefixed("session_start"))
+            // Keep monotonic ordering while purging all retained diagnostic telemetry.
+            // Corrupt state must remain corrupt/blocked rather than reset its sequence.
+            try {
+                prefs.getString(prefixed("evidence_state"), null)?.let { raw ->
+                    val old = org.json.JSONObject(raw)
+                    require(old.get("sequence") is Int || old.get("sequence") is Long)
+                    val sequence = old.getLong("sequence")
+                    require(sequence in 0..9_007_199_254_740_991L)
+                    edit.putString(prefixed("evidence_state"), org.json.JSONObject().apply {
+                        put("sequence", sequence); put("pending", org.json.JSONObject.NULL)
+                        put("events", org.json.JSONArray())
+                    }.toString())
+                }
+            } catch (_: Exception) { /* Leave unknown sequence untouched, failing closed. */ }
+        }
+        return edit.commit()
+    }
+
     companion object {
         @Volatile
         private var instance: Storage? = null

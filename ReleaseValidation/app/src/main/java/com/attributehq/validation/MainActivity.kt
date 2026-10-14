@@ -7,6 +7,7 @@ import android.os.Looper
 import android.widget.TextView
 import com.attributehq.sdk.AttributeHQ
 import com.attributehq.sdk.AttributeHQConfiguration
+import com.attributehq.sdk.AdvertisingSharing
 import org.json.JSONObject
 import java.io.File
 
@@ -26,13 +27,34 @@ class MainActivity : Activity() {
             val key = configuration.getString("sdkKey")
             require(key.startsWith("ak_"))
             AttributeHQ.initialize(this, AttributeHQConfiguration(apiKey = key, appId = appId,
-                flushIntervalSeconds = 2, enableDebugLogging = true))
+                flushIntervalSeconds = 2, enableDebugLogging = false,
+                enableSandboxEvidenceUpload = configuration.optBoolean("sandboxEvidence", false)))
             val scenario = intent.getStringExtra("scenario") ?: "onboarding"
             val markers = getSharedPreferences("validation_markers", MODE_PRIVATE)
             if (scenario in listOf("onboarding", "offline_recovery") && !markers.getBoolean(scenario, false)) {
                 AttributeHQ.track(if (scenario == "onboarding") "onboarding_completed" else "offline_recovery",
                     mapOf("source" to "android_emulator_validation"))
                 markers.edit().putBoolean(scenario, true).commit()
+            }
+            if (configuration.optBoolean("sandboxEvidence", false)) {
+                val choice = when (scenario) {
+                    "evidence_allowed" -> AdvertisingSharing.Choice.ALLOWED
+                    "evidence_denied" -> AdvertisingSharing.Choice.DENIED
+                    else -> AdvertisingSharing.Choice.UNKNOWN
+                }
+                if (scenario.startsWith("evidence_")) {
+                    AttributeHQ.setApplicationTrackingEnabled(false)
+                    AttributeHQ.setAdvertisingSharing(AdvertisingSharing(choice))
+                    AttributeHQ.prepareConversionEvidence("android-validation-$scenario") { result ->
+                        result.onSuccess { ticket ->
+                            File(filesDir, "evidence-ticket.json").writeText(ticket.toJson().toString())
+                        }.onFailure {
+                            File(filesDir, "evidence-error.txt").writeText("Evidence preparation failed")
+                        }
+                    }
+                }
+                if (scenario == "collection_disabled") AttributeHQ.setCollectionEnabled(false)
+                if (scenario == "collection_enabled") AttributeHQ.setCollectionEnabled(true)
             }
             AttributeHQ.flush()
             handler.postDelayed(object : Runnable {

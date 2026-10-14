@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** SDK version constant */
-const val SDK_VERSION = "1.1.0-beta.1"
+const val SDK_VERSION = "1.1.0-beta.2"
 
 // region Public Types
 
