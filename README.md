@@ -2,7 +2,7 @@
 
 Lightweight Android attribution SDK for [AttributeHQ](https://api.attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, and offline event queueing.
 
-**1.1.0-beta.1 — prerelease preparation:** local builds, 31 tests and live emulator onboarding/offline recovery have passed. Public package installation, Google Play referrer attribution and ad-network delivery remain unverified. This version is not yet published. See [release notes](RELEASE_NOTES.md).
+**1.1.0-beta.1 — analytics beta:** local builds, 31 tests and live emulator onboarding/offline recovery have passed. The package is available on JitPack. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
 
 ## Requirements
 
@@ -11,13 +11,32 @@ Lightweight Android attribution SDK for [AttributeHQ](https://api.attributehq.co
 
 ## Installation
 
-Use the checked-out `:attributehq` module for development validation. The previously documented JitPack `1.0.0` dependency does not contain the fixes in this working tree. Do not use it as evidence that this version is released.
+Add JitPack in your project's `settings.gradle.kts`:
 
-Build with JDK 17, Android SDK Platform 34 and Build Tools 34.0.0:
-
-```sh
-./gradlew :attributehq:testDebugUnitTest :attributehq:assembleRelease
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://jitpack.io")
+            content { includeGroup("com.github.AttributeHQ") }
+        }
+    }
+}
 ```
+
+Then add the beta dependency in your app module:
+
+```kotlin
+dependencies {
+    implementation("com.github.AttributeHQ:android-sdk:1.1.0-beta.1")
+}
+```
+
+Use a write-only SDK key from your app's AttributeHQ dashboard. Never embed a server conversion key or dashboard credential. This prerelease is for controlled integration testing; see the upgrade notes before replacing an older development build.
+
+For contributors, local builds require JDK 17, Android SDK Platform 34 and Build Tools 34.0.0.
 
 ## Quick Start
 

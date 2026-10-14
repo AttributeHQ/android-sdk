@@ -1,6 +1,6 @@
 # 1.1.0-beta.1 — Android analytics beta
 
-Status: prepared locally, not published. Intended for controlled integration testing.
+Status: published analytics prerelease. Intended for controlled integration testing.
 
 ## Changes
 
@@ -24,11 +24,10 @@ The app ID must be the UUID from the AttributeHQ dashboard. The SDK key should b
 
 This validates baseline analytics, not paid attribution. Google Play Install Referrer attribution requires a Play-distributed test. Android provider-sharing controls, Meta/X eligibility and public JitPack installation remain release gates. SDK revenue events are analytics, not independently verified purchases.
 
-## Publication checklist
+## Distribution validation — 14 October 2026
 
-1. Commit the reviewed candidate and push its immutable prerelease tag.
-2. Let JitPack build that tag and inspect its build log and published POM/AAR.
-3. Build a fresh consumer using only the public dependency, without the local validation repository.
-4. Create the GitHub prerelease and publish verified installation instructions after that check succeeds.
+JitPack built tag `1.1.0-beta.1` at commit `b4a09db77a9109bf30859c1edb006b9d92443ece` successfully. All 13 Kotlin files in its public sources JAR match the reviewed SDK source.
 
-Do not mark the release stable or claim public installability before those checks pass. JitPack's install command uses `publishToMavenLocal`, as described in its [build documentation](https://docs.jitpack.io/building/).
+A fresh independent Android consumer built successfully (32 tasks) with empty dependency caches, no local Maven repository and no SDK source dependency. Its resolved AAR matches the independently downloaded public artifact by SHA-256.
+
+Use `com.github.AttributeHQ:android-sdk:1.1.0-beta.1` from `https://jitpack.io`; see [installation instructions](README.md#installation).

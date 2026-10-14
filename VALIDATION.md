@@ -1,6 +1,6 @@
 # Android baseline validation
 
-This working tree contains unreleased reliability fixes. It is not yet a validated public Android SDK release.
+Version 1.1.0-beta.1 is a published analytics prerelease. Public package compilation is validated; Google Play and paid-network attribution remain unvalidated.
 
 ## Local checks
 
@@ -48,6 +48,10 @@ For an existing local Robolectric runtime cache, pass `-ProbolectricDependencyDi
 
 - Validate actual Google Play Install Referrer attribution separately from sideloaded organic onboarding.
 - Review Android privacy disclosures and provider-sharing support before claiming paid-network support.
-- Verify public package coordinates and installation before publishing a version or updating public documentation.
+
 
 Changes here neither configure nor send Meta/X postbacks. No customer data, production keys or backend deployment are required for the local checks.
+
+## Public distribution — 14 October 2026
+
+JitPack successfully built `1.1.0-beta.1` at `b4a09db`. A fresh independent consumer compiled with `com.github.AttributeHQ:android-sdk:1.1.0-beta.1` from JitPack (32 tasks). It used isolated empty dependency caches, no local Maven repository, and no SDK source dependency. The resolved AAR SHA-256 matched the direct public download; the public source JAR matched all 13 SDK Kotlin files.
