@@ -1,3 +1,28 @@
+# 1.1.0-beta.2 — Android analytics and privacy beta
+
+Prerelease for controlled integration testing.
+
+## Changes since beta.1
+
+- Persistent collection controls: start disabled, enable after the app's decision, and purge pending telemetry on withdrawal.
+- General advertising-sharing preferences and Meta/X restrictions; unknown is unreported, not permission.
+- Explicitly opt-in sandbox evidence upload with durable sequence ordering, exact acknowledgements and immutable event-time tickets.
+- Offline evidence survives process restart; old retries cannot undo newer reported restrictions.
+
+## Upgrade and limits
+
+Use `com.github.AttributeHQ:android-sdk:1.1.0-beta.2` from JitPack. Beta.1 app-scoped installation identity is retained. Collection remains enabled by default for new installations unless explicitly disabled; evidence upload remains off by default. See [privacy controls](PRIVACY_CONTROLS.md) and [data inventory](DATA_COLLECTION.md) before enabling new APIs.
+
+Android evidence requires compatible backend support (deployed in AttributeHQ commit `134c1b2`). Upload is sandbox-only. It neither creates conversion receipts nor enables Meta/X delivery. No GAID, Android ID or Apple ATT fields are collected. Offline/disabled changes are unknown remotely until reported, and delivered data cannot be recalled.
+
+## Validation
+
+46 Android tests, release assembly, lint and a separate Maven consumer passed. Live Android 14 emulator checks verified acknowledgement, immutable offline recovery, unknown preserving denial, and disabled collection across restart. Server recorded zero conversion receipts and delivery jobs. Temporary credentials were revoked and removed. See [validation](VALIDATION.md).
+
+Google Play Install Referrer attribution, Android partner delivery and paid-ad attribution remain separate validation gates. SDK revenue events are analytics, not independently verified purchases.
+
+---
+
 # 1.1.0-beta.1 — Android analytics beta
 
 Status: published analytics prerelease. Intended for controlled integration testing.

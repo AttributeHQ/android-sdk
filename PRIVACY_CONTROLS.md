@@ -1,6 +1,6 @@
-# Android privacy controls — unreleased 1.1.0-beta.2
+# Android privacy controls — 1.1.0-beta.2
 
-These APIs are in the unreleased candidate. The published `1.1.0-beta.1` package does not contain them.
+These APIs are included in `1.1.0-beta.2`. The published `1.1.0-beta.1` package does not contain them.
 
 ## Collection
 
@@ -50,7 +50,7 @@ The preference follows the existing iOS contract: `UNKNOWN` means unreported and
 
 ## Opt-in sandbox evidence upload
 
-The unreleased candidate can report Android observations to the matching backend candidate:
+The SDK can report Android observations to the matching backend candidate:
 
 ```kotlin
 val config = AttributeHQConfiguration(
@@ -71,4 +71,4 @@ Pending observations and tickets persist in app-private preferences. Retries ret
 
 Disabling collection purges pending evidence and tickets, retaining the sequence counter. It sends no withdrawal request while disabled. Offline or disabled changes are therefore not known to the server until subsequently reported; these APIs cannot recall delivered data. Requests already started may finish. Host apps must handle unsuccessful persistence callbacks and review backup exclusions.
 
-Android observations are accepted only for the matching registered Android package with an app-scoped write key. Backend restriction evaluation preserves event-time and current restrictions. **Android Meta/X delivery remains disabled**, and the iOS Meta eligibility guard rejects Android evidence. This is sandbox evidence support, not completed Android attribution or partner consent certification. The backend changes are deployed and the isolated Android 14 emulator test passed; SDK beta.2 is not yet published.
+Android observations are accepted only for the matching registered Android package with an app-scoped write key. Backend restriction evaluation preserves event-time and current restrictions. **Android Meta/X delivery remains disabled**, and the iOS Meta eligibility guard rejects Android evidence. This is sandbox evidence support, not completed Android attribution or partner consent certification. The backend changes are deployed and the isolated Android 14 emulator test passed.

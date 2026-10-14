@@ -2,7 +2,7 @@
 
 Lightweight Android attribution SDK for [AttributeHQ](https://attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, and offline event queueing.
 
-**1.1.0-beta.1 — analytics beta:** local builds, 31 tests and live emulator onboarding/offline recovery have passed. The package is available on JitPack. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
+**1.1.0-beta.2 — analytics and privacy beta:** 46 tests, release builds and live emulator evidence/offline recovery checks have passed. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
 
 ## Requirements
 
@@ -30,7 +30,7 @@ Then add the beta dependency in your app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.AttributeHQ:android-sdk:1.1.0-beta.1")
+    implementation("com.github.AttributeHQ:android-sdk:1.1.0-beta.2")
 }
 ```
 
@@ -120,11 +120,11 @@ The SDK declares these permissions in its manifest (merged automatically):
 - When the queue is full, new events are dropped with a warning; existing/in-flight events are retained. Persisted events are limited by available device storage.
 - Install Referrer collection waits up to five seconds. Missing or unavailable referrers are omitted. Failed install acknowledgements retry while the process is running and on foregrounding/relaunch.
 - `trackRevenue` records analytics; it does not validate a store transaction or prove ad-network delivery.
-- The app developer remains responsible for privacy disclosures and consent. Android provider-sharing controls and paid attribution validation are not part of this baseline.
+- The app developer remains responsible for privacy disclosures and consent. Partner delivery and paid attribution remain separate validation gates.
 
-## Unreleased privacy controls
+## Privacy controls
 
-The working tree targets `1.1.0-beta.2` and adds persistent collection enable/disable, advertising-sharing preferences and opt-in sandbox evidence upload. These are not in the published beta. See [privacy controls](PRIVACY_CONTROLS.md) for behavior, deployment requirements and the remaining Android partner-delivery limitation.
+Version `1.1.0-beta.2` adds persistent collection enable/disable, advertising-sharing preferences and opt-in sandbox evidence upload. See [privacy controls](PRIVACY_CONTROLS.md) for behavior, deployment requirements and the remaining Android partner-delivery limitation.
 
 ## Data collection
 
