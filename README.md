@@ -2,7 +2,7 @@
 
 Lightweight Android attribution SDK for [AttributeHQ](https://attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, and offline event queueing.
 
-**1.1.0-beta.2 — analytics and privacy beta:** 46 tests, release builds and live emulator evidence/offline recovery checks have passed. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
+**1.1.0-beta.2 — analytics and privacy beta:** 46 tests, release builds and live emulator evidence/offline recovery checks have passed. The public JitPack package also passed a fresh independent consumer build. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
 
 ## Requirements
 
@@ -98,6 +98,10 @@ Match types: `DEVICE_ID`, `FINGERPRINT`, `INSTALL_REFERRER`, `ORGANIC`.
 | `maxQueueSize` | `Int` | `100` | Max events in offline queue |
 | `enableDebugLogging` | `Boolean` | `false` | Enable debug logs |
 | `requestTimeoutMs` | `Long` | `30000` | Network timeout (milliseconds) |
+| `initialCollectionEnabled` | `Boolean?` | `null` | Preserve saved collection state; a new installation defaults to enabled |
+| `initialAdvertisingSharing` | `AdvertisingSharing?` | `null` | Preserve saved sharing preference; a new installation starts unknown |
+| `enableSandboxEvidenceUpload` | `Boolean` | `false` | Opt in to sandbox permission observations |
+| `initialApplicationTrackingEnabled` | `Boolean?` | `null` | Preserve the app-level tracking decision; a new installation defaults to false |
 
 ## ProGuard
 
