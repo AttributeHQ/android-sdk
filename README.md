@@ -1,6 +1,6 @@
 # AttributeHQ Android SDK
 
-Lightweight Android attribution SDK for [AttributeHQ](https://api.attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, and offline event queueing.
+Lightweight Android attribution SDK for [AttributeHQ](https://attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, and offline event queueing.
 
 **1.1.0-beta.1 — analytics beta:** local builds, 31 tests and live emulator onboarding/offline recovery have passed. The package is available on JitPack. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
 
