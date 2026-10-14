@@ -22,7 +22,7 @@ The app ID must be the UUID from the AttributeHQ dashboard. The SDK key should b
 
 31 tests passed. Release compilation, lint and a separate Maven consumer passed. An isolated Android 14 emulator sent one install and two events to the live service; an offline event survived force-stop, retained its ID and uploaded after restart. The dashboard showed one user. Test credentials were revoked and removed.
 
-This validates baseline analytics, not paid attribution. Google Play Install Referrer attribution requires a Play-distributed test. Android provider-sharing controls, Meta/X eligibility and public JitPack installation remain release gates. SDK revenue events are analytics, not independently verified purchases.
+This validates baseline analytics, not paid attribution. Google Play Install Referrer attribution requires a Play-distributed test. Android provider-sharing controls and Meta/X eligibility remain release gates. SDK revenue events are analytics, not independently verified purchases.
 
 ## Distribution validation — 14 October 2026
 
