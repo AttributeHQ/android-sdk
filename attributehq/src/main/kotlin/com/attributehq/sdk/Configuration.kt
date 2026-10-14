@@ -30,7 +30,9 @@ internal data class ResolvedConfiguration(
     companion object {
         fun resolve(config: AttributeHQConfiguration): ResolvedConfiguration {
             require(config.apiKey.isNotBlank()) { "API key is required" }
-            require(config.appId.isNotBlank()) { "App ID is required" }
+            require(config.appId.matches(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))) {
+                "App ID must be a UUID from the AttributeHQ dashboard"
+            }
 
             return ResolvedConfiguration(
                 apiKey = config.apiKey,
@@ -40,7 +42,7 @@ internal data class ResolvedConfiguration(
                 flushIntervalSeconds = config.flushIntervalSeconds.coerceAtLeast(1L),
                 maxQueueSize = config.maxQueueSize.coerceAtLeast(10),
                 enableDebugLogging = config.enableDebugLogging,
-                requestTimeoutMs = config.requestTimeoutMs.coerceAtLeast(5_000L)
+                requestTimeoutMs = config.requestTimeoutMs.coerceIn(5_000L, Int.MAX_VALUE.toLong())
             )
         }
     }

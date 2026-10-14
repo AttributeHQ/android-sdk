@@ -1,2 +1,4 @@
 jdk:
   - openjdk17
+install:
+  - ./gradlew --no-daemon :attributehq:assembleRelease :attributehq:publishToMavenLocal

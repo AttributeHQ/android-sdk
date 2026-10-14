@@ -1,6 +1,8 @@
 # AttributeHQ Android SDK
 
-Lightweight Android attribution SDK for [AttributeHQ](https://api.attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, GAID collection, and offline event queueing.
+Lightweight Android attribution SDK for [AttributeHQ](https://api.attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, and offline event queueing.
+
+**1.1.0-beta.1 — prerelease preparation:** local builds, 31 tests and live emulator onboarding/offline recovery have passed. Public package installation, Google Play referrer attribution and ad-network delivery remain unverified. This version is not yet published. See [release notes](RELEASE_NOTES.md).
 
 ## Requirements
 
@@ -9,24 +11,12 @@ Lightweight Android attribution SDK for [AttributeHQ](https://api.attributehq.co
 
 ## Installation
 
-Add the JitPack repository to your project-level `settings.gradle.kts`:
+Use the checked-out `:attributehq` module for development validation. The previously documented JitPack `1.0.0` dependency does not contain the fixes in this working tree. Do not use it as evidence that this version is released.
 
-```kotlin
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
-}
-```
+Build with JDK 17, Android SDK Platform 34 and Build Tools 34.0.0:
 
-Add the dependency to your app-level `build.gradle.kts`:
-
-```kotlin
-dependencies {
-    implementation("com.github.AttributeHQ:android-sdk:1.0.0")
-}
+```sh
+./gradlew :attributehq:testDebugUnitTest :attributehq:assembleRelease
 ```
 
 ## Quick Start
@@ -41,6 +31,7 @@ val config = AttributeHQConfiguration(
     apiKey = "ak_your_api_key",
     appId = "your-app-id"
 )
+// Enable only while debugging; leave disabled in production.
 config.enableDebugLogging = true
 
 AttributeHQ.initialize(this, config)
@@ -100,8 +91,21 @@ The SDK declares these permissions in its manifest (merged automatically):
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 ```
+
+## Identity and delivery
+
+- `getAppInstanceId()` returns the app-scoped random installation ID after initialization. It is never replaced by an advertising ID. This version does not collect GAID or declare the AD_ID permission.
+- State uses a new app-scoped storage namespace. Old unscoped state is not migrated because its app ownership and advertising-ID identity cannot be established safely. Upgrading from old development builds creates a new installation identity.
+- Events carry persistent IDs. An in-flight batch stays on disk until the API acknowledges its complete count. Retries use the same IDs and payloads so the API can deduplicate them.
+- When the queue is full, new events are dropped with a warning; existing/in-flight events are retained. Persisted events are limited by available device storage.
+- Install Referrer collection waits up to five seconds. Missing or unavailable referrers are omitted. Failed install acknowledgements retry while the process is running and on foregrounding/relaunch.
+- `trackRevenue` records analytics; it does not validate a store transaction or prove ad-network delivery.
+- The app developer remains responsible for privacy disclosures and consent. Android provider-sharing controls and paid attribution validation are not part of this baseline.
+
+## Data collection
+
+See [the SDK data inventory](DATA_COLLECTION.md) when preparing your app’s privacy disclosures.
 
 ## License
 

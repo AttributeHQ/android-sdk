@@ -2,7 +2,6 @@ package com.attributehq.sdk
 
 import android.content.Context
 import android.os.Build
-import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import java.util.Locale
@@ -14,8 +13,7 @@ internal data class DeviceInfoData(
     val timezone: String?,
     val language: String?,
     val osVersion: String?,
-    val deviceModel: String?,
-    val androidId: String?
+    val deviceModel: String?
 )
 
 /** Collects device information. */
@@ -26,8 +24,7 @@ internal object DeviceInfo {
             timezone = TimeZone.getDefault().id,
             language = Locale.getDefault().language,
             osVersion = Build.VERSION.RELEASE,
-            deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
-            androidId = getAndroidId(context)
+            deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
         )
     }
 
@@ -43,11 +40,4 @@ internal object DeviceInfo {
         }
     }
 
-    private fun getAndroidId(context: Context): String? {
-        return try {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-        } catch (e: Exception) {
-            null
-        }
-    }
 }

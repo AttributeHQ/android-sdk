@@ -1,34 +1,11 @@
 package com.attributehq.sdk
 
-/**
- * Storage tests require Android context (SharedPreferences).
- * These tests need Robolectric or instrumented test runner.
- *
- * To run: ./gradlew :attributehq:connectedAndroidTest
- * or with Robolectric: add testImplementation("org.robolectric:robolectric:4.11")
- *
- * Test cases:
- * - setString/getString with prefix: verify key is prefixed with __ahq_
- * - setBool/getBool: true and false
- * - setLong/getLong: store and retrieve longs
- * - setJsonString/getJsonString: JSON round-trip
- * - remove: verify key removed
- * - getString for nonexistent key returns null
- */
+// Attribution serialization; real SharedPreferences checks are in ReliableDeliveryTest.
 
 import org.junit.Assert.*
 import org.junit.Test
 
 class StorageTest {
-
-    // Pure logic tests that don't require Android context
-
-    @Test
-    fun `key prefix is correct`() {
-        // Verifying the expected prefix pattern
-        val expectedPrefix = "__ahq_"
-        assertEquals("__ahq_", expectedPrefix)
-    }
 
     @Test
     fun `json round trip for AttributionResult`() {

@@ -12,7 +12,8 @@ import java.util.concurrent.TimeUnit
 internal class EventQueue(
     private val config: ResolvedConfiguration,
     private val storage: Storage,
-    private val scheduler: ScheduledExecutorService
+    private val scheduler: ScheduledExecutorService,
+    private val isOnline: () -> Boolean = { Reachability.getInstance()?.isReachable ?: true }
 ) {
     private val queue = mutableListOf<QueuedEvent>()
     private var isFlushing = false
@@ -30,13 +31,14 @@ internal class EventQueue(
     }
 
     /** Add an event to the queue. Auto-flushes when batch size is reached. */
+    @Synchronized
     fun enqueue(event: QueuedEvent) {
-        queue.add(event)
-
-        // Circular buffer: drop oldest when over limit
-        while (queue.size > config.maxQueueSize) {
-            queue.removeFirst()
+        // Never evict an event whose delivery may already be in flight.
+        if (queue.size >= config.maxQueueSize) {
+            Logger.warn("Event queue full; new event was not queued")
+            return
         }
+        queue.add(QueuedEvent.fromJson(event.toJson()))
 
         persist()
         Logger.debug("Event queued: ${event.eventName} (${queue.size} pending)")
@@ -48,57 +50,44 @@ internal class EventQueue(
     }
 
     /** Flush pending events to the server. */
+    @Synchronized
     fun flush(completion: (() -> Unit)? = null) {
         if (isFlushing || queue.isEmpty()) {
             completion?.invoke()
             return
         }
 
-        val reachability = Reachability.getInstance()
-        if (reachability != null && !reachability.isReachable) {
+        if (!isOnline()) {
             Logger.debug("Offline, skipping flush (${queue.size} events queued)")
             completion?.invoke()
             return
         }
 
+        val sender = onFlush ?: run { completion?.invoke(); return }
+        if (!persist()) { completion?.invoke(); return }
         isFlushing = true
-
-        val batchCount = minOf(config.batchSize, queue.size)
-        val batch = queue.take(batchCount).toList()
-        repeat(batchCount) { queue.removeFirst() }
-        persist()
-
-        Logger.debug("Flushing ${batch.size} events...")
-
-        onFlush?.invoke(batch) { success ->
-            if (!success) {
-                // Re-queue failed events at the front
-                queue.addAll(0, batch)
-
-                // Trim if over max
-                while (queue.size > config.maxQueueSize) {
-                    queue.removeLast()
+        val batch = queue.take(config.batchSize).map { QueuedEvent.fromJson(it.toJson()) }
+        val ids = batch.map { it.eventId }.toSet()
+        val completed = java.util.concurrent.atomic.AtomicBoolean(false)
+        val acknowledge: (Boolean) -> Unit = { success ->
+            if (completed.compareAndSet(false, true)) {
+                synchronized(this) {
+                    if (success) {
+                        queue.removeAll { it.eventId in ids }
+                        persist()
+                    }
+                    isFlushing = false
                 }
-
-                persist()
-                Logger.warn("Flush failed, ${batch.size} events re-queued")
-            } else {
-                Logger.debug("Flush succeeded: ${batch.size} events sent")
+                completion?.invoke()
             }
-
-            isFlushing = false
-            completion?.invoke()
-        } ?: run {
-            // No onFlush handler, re-queue
-            queue.addAll(0, batch)
-            persist()
-            isFlushing = false
-            completion?.invoke()
         }
+        // Keep the complete batch on disk until the API acknowledges all items.
+        try { sender(batch, acknowledge) }
+        catch (_: Exception) { acknowledge(false) }
     }
 
     /** Number of events currently in the queue. */
-    val count: Int get() = queue.size
+    val count: Int get() = synchronized(this) { queue.size }
 
     /** Set up reachability listener to flush when network comes back. */
     fun setupReachabilityListener() {
@@ -127,13 +116,16 @@ internal class EventQueue(
         )
     }
 
-    private fun persist() {
+    private fun persist(): Boolean {
         try {
             val jsonArray = JSONArray()
             queue.forEach { jsonArray.put(it.toJson()) }
-            storage.setJsonString("event_queue", jsonArray.toString())
+            val saved = storage.setJsonString("event_queue", jsonArray.toString())
+            if (!saved) Logger.error("Failed to persist event queue")
+            return saved
         } catch (e: Exception) {
-            Logger.error("Failed to persist event queue: ${e.message}")
+            Logger.error("Failed to persist event queue")
+            return false
         }
     }
 
@@ -144,6 +136,7 @@ internal class EventQueue(
             for (i in 0 until jsonArray.length()) {
                 queue.add(QueuedEvent.fromJson(jsonArray.getJSONObject(i)))
             }
+            persist() // Persist IDs assigned to legacy events before any network retry.
             if (queue.isNotEmpty()) {
                 Logger.debug("Restored ${queue.size} queued events")
             }

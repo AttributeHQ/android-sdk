@@ -32,9 +32,9 @@ internal class Reachability private constructor(context: Context) {
         }
 
         override fun onLost(network: Network) {
-            isReachable = false
-            Logger.debug("Network lost")
-            onReachabilityChanged?.invoke(false)
+            isReachable = checkCurrentConnectivity()
+            Logger.debug("Network changed")
+            onReachabilityChanged?.invoke(isReachable)
         }
 
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
@@ -72,6 +72,9 @@ internal class Reachability private constructor(context: Context) {
 
     @Suppress("DEPRECATION")
     private fun checkCurrentConnectivity(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < 23) {
+            return connectivityManager.activeNetworkInfo?.isConnected == true
+        }
         val activeNetwork = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)

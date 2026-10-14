@@ -7,6 +7,8 @@ plugins {
 android {
     namespace = "com.attributehq.sdk"
     compileSdk = 34
+    publishing { singleVariant("release") { withSourcesJar() } }
+    testOptions { unitTests.isIncludeAndroidResources = true }
 
     defaultConfig {
         minSdk = 21
@@ -34,7 +36,10 @@ android {
 }
 
 dependencies {
-    implementation("com.google.android.gms:play-services-ads-identifier:18.0.1")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.json:json:20231013")
     implementation("com.android.installreferrer:installreferrer:2.2")
     implementation("androidx.lifecycle:lifecycle-process:2.7.0")
     implementation("androidx.core:core-ktx:1.12.0")
@@ -42,12 +47,18 @@ dependencies {
 
 afterEvaluate {
     publishing {
+        repositories {
+            maven {
+                name = "validation"
+                url = uri(layout.buildDirectory.dir("validation-repository"))
+            }
+        }
         publications {
             create<MavenPublication>("release") {
                 from(components["release"])
                 groupId = "com.attributehq"
                 artifactId = "sdk"
-                version = "1.0.0"
+                version = "1.1.0-beta.1"
 
                 pom {
                     name.set("AttributeHQ Android SDK")
@@ -67,4 +78,12 @@ afterEvaluate {
 
 tasks.withType<Jar> {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Optional pre-fetched runtime directory for reproducible offline validation.
+tasks.withType<Test>().configureEach {
+    providers.gradleProperty("robolectricDependencyDir").orNull?.let { directory ->
+        systemProperty("robolectric.offline", "true")
+        systemProperty("robolectric.dependency.dir", directory)
+    }
 }

@@ -112,14 +112,13 @@ class EventQueueTest {
             screenResolution = "1080x1920",
             timezone = "Africa/Lagos",
             language = "en",
-            gaid = "gaid-789",
             installReferrer = "utm_source=facebook&utm_campaign=test"
         )
 
         val json = body.toJson()
         assertEquals("android", json.getString("platform"))
         assertEquals("app-123", json.getString("app_id"))
-        assertEquals("gaid-789", json.getString("gaid"))
+        assertFalse(json.has("gaid"))
         assertEquals("utm_source=facebook&utm_campaign=test", json.getString("install_referrer"))
     }
 }

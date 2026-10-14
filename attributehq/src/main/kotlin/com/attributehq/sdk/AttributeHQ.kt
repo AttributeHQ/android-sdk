@@ -24,13 +24,14 @@ import java.util.concurrent.ScheduledExecutorService
 object AttributeHQ {
 
     private var config: ResolvedConfiguration? = null
-    private var deviceId: String? = null
-    private var gaid: String? = null
+    @Volatile private var deviceId: String? = null
     private var installReferrer: String? = null
     private var session: SessionManager? = null
     private var queue: EventQueue? = null
     private var reachability: Reachability? = null
     private var isInitialized = false
+    private var installInFlight = false
+    private var referrerReady = false
 
     private val executor: ScheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor { r ->
@@ -46,13 +47,13 @@ object AttributeHQ {
      * @throws IllegalArgumentException if config is invalid
      */
     fun initialize(context: Context, configuration: AttributeHQConfiguration) {
+        val resolved = ResolvedConfiguration.resolve(configuration)
         executor.execute {
             if (isInitialized) {
                 Logger.warn("SDK already initialized")
                 return@execute
             }
 
-            val resolved = ResolvedConfiguration.resolve(configuration)
             this.config = resolved
 
             Logger.setEnabled(resolved.enableDebugLogging)
@@ -61,25 +62,21 @@ object AttributeHQ {
             val appContext = context.applicationContext
 
             // Initialize storage
-            val storage = Storage.initialize(appContext)
+            val storage = Storage.initialize(appContext, resolved.appId)
 
             // Get or create persistent device ID
-            this.deviceId = getOrCreateDeviceId(storage)
-            Logger.debug("Device ID: ${this.deviceId}")
-
-            // Fetch GAID async
-            GAIDManager.getGAID(appContext, executor) { fetchedGaid ->
-                this.gaid = fetchedGaid
-                if (fetchedGaid != null) {
-                    this.deviceId = fetchedGaid
-                    storage.setString("device_id", fetchedGaid)
-                    Logger.debug("Device ID updated to GAID: $fetchedGaid")
-                }
+            this.deviceId = getOrCreateDeviceId(storage) ?: run {
+                Logger.error("Cannot initialize SDK: installation identity could not be saved")
+                return@execute
             }
-
-            // Fetch Install Referrer async
-            InstallReferrerManager.getInstallReferrer(appContext) { referrer ->
-                this.installReferrer = referrer
+            // Install identity is app-scoped and never replaced by an advertising ID.
+            InstallReferrerManager.getInstallReferrer(appContext, executor) { referrer ->
+                executor.execute {
+                    if (!referrer.isNullOrBlank()) storage.setString("install_referrer", referrer)
+                    this.installReferrer = referrer?.takeIf { it.isNotBlank() } ?: storage.getString("install_referrer")
+                    this.referrerReady = true
+                    trackInstallIfNeeded(appContext, storage)
+                }
             }
 
             // Initialize session manager
@@ -100,7 +97,9 @@ object AttributeHQ {
             trackInstallIfNeeded(appContext, storage)
 
             // App lifecycle observer
-            setupLifecycleObserver()
+            setupLifecycleObserver(appContext, storage)
+            executor.scheduleWithFixedDelay({ trackInstallIfNeeded(appContext, storage) },
+                30, 30, java.util.concurrent.TimeUnit.SECONDS)
 
             isInitialized = true
             Logger.debug("SDK initialized successfully")
@@ -114,12 +113,14 @@ object AttributeHQ {
      * @param properties Optional key-value properties
      */
     fun track(eventName: String, properties: Map<String, Any?> = emptyMap()) {
+        require(eventName.isNotBlank() && eventName.length <= 255) { "Event name must contain 1–255 characters" }
+        val snapshot = JSONObject(properties.toJSONObject().toString()).toMap()
         executor.execute {
             if (!ensureInitialized()) return@execute
 
             val event = QueuedEvent(
                 eventName = eventName,
-                properties = properties,
+                properties = snapshot,
                 timestamp = System.currentTimeMillis(),
                 sessionId = session!!.getSessionId()
             )
@@ -153,18 +154,23 @@ object AttributeHQ {
      * @param properties Optional user properties
      */
     fun identify(userId: String, properties: Map<String, Any?> = emptyMap()) {
+        require(userId.isNotBlank()) { "User ID must not be blank" }
+        val snapshot = JSONObject(properties.toJSONObject().toString()).toMap()
         executor.execute {
             if (!ensureInitialized()) return@execute
 
             Storage.getInstance().setString("user_id", userId)
 
-            val props = properties.toMutableMap()
+            val props = snapshot.toMutableMap()
             props["user_id"] = userId
             track("identify", props)
 
-            Logger.debug("User identified: $userId")
+            Logger.debug("User identified")
         }
     }
+
+    /** App-scoped installation ID; null until asynchronous initialization completes. */
+    fun getAppInstanceId(): String? = deviceId
 
     /** Manually flush all queued events to the server. */
     fun flush() {
@@ -191,15 +197,14 @@ object AttributeHQ {
 
     // region Private: Device ID
 
-    private fun getOrCreateDeviceId(storage: Storage): String {
+    private fun getOrCreateDeviceId(storage: Storage): String? {
         // Try stored device ID
         val existing = storage.getString("device_id")
         if (existing != null) return existing
 
         // Generate new UUID and persist
         val uuid = UUID.randomUUID().toString()
-        storage.setString("device_id", uuid)
-        return uuid
+        return uuid.takeIf { storage.setString("device_id", it) }
     }
 
     // endregion
@@ -207,6 +212,7 @@ object AttributeHQ {
     // region Private: Install Tracking
 
     private fun trackInstallIfNeeded(context: Context, storage: Storage) {
+        if (!referrerReady || installInFlight) return
         if (storage.getBool("installed")) {
             Logger.debug("Install already tracked")
             return
@@ -228,30 +234,21 @@ object AttributeHQ {
             screenResolution = deviceInfo.screenResolution,
             timezone = deviceInfo.timezone,
             language = deviceInfo.language,
-            gaid = gaid,
             installReferrer = installReferrer
         ).toJson()
 
-        NetworkClient.post(
-            path = "/api/v1/installs",
-            body = body,
-            config = config
-        ) { result ->
-            result.onSuccess { response ->
-                storage.setBool("installed", true)
-
-                // Cache attribution result
-                val dataJson = response.optJSONObject("data")
-                if (dataJson != null) {
-                    storage.setJsonString("attribution", dataJson.toString())
-                    val attribution = AttributionResult.fromJson(dataJson)
-                    Logger.debug("Install tracked: ${attribution.matchType.value} (${attribution.confidence}%)")
+        installInFlight = true
+        NetworkClient.post(path = ApiContract.INSTALLS_PATH, body = body, config = config) { result ->
+            executor.execute {
+                installInFlight = false
+                val data = ApiContract.installAttribution(result.getOrNull())
+                if (data != null) {
+                    if (storage.setJsonString("attribution", data.toString())) {
+                        storage.setBool("installed", true)
+                    }
                 } else {
-                    Logger.debug("Install tracked (no attribution data in response)")
+                    Logger.warn("Install was not acknowledged; will retry")
                 }
-            }.onFailure { error ->
-                // Don't set installed flag — will retry on next launch
-                Logger.warn("Install tracking failed: ${error.message}")
             }
         }
     }
@@ -272,11 +269,11 @@ object AttributeHQ {
         ).toJson()
 
         NetworkClient.post(
-            path = "/api/v1/events",
+            path = ApiContract.EVENTS_PATH,
             body = body,
             config = config
         ) { result ->
-            completion(result.isSuccess)
+            completion(ApiContract.acceptedEvents(result.getOrNull(), events.size))
         }
     }
 
@@ -284,12 +281,15 @@ object AttributeHQ {
 
     // region Private: Lifecycle
 
-    private fun setupLifecycleObserver() {
+    private fun setupLifecycleObserver(context: Context, storage: Storage) {
         try {
             // Must be called on main thread
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 ProcessLifecycleOwner.get().lifecycle.addObserver(
                     object : DefaultLifecycleObserver {
+                        override fun onStart(owner: LifecycleOwner) {
+                            executor.execute { trackInstallIfNeeded(context, storage) }
+                        }
                         override fun onStop(owner: LifecycleOwner) {
                             Logger.debug("App entering background, flushing events...")
                             executor.execute { queue?.flush() }

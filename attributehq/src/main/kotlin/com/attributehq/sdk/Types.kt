@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** SDK version constant */
-const val SDK_VERSION = "1.0.0"
+const val SDK_VERSION = "1.1.0-beta.1"
 
 // region Public Types
 
@@ -68,9 +68,11 @@ internal data class QueuedEvent(
     val eventName: String,
     val properties: Map<String, Any?>,
     val timestamp: Long,
-    val sessionId: String
+    val sessionId: String,
+    val eventId: String = java.util.UUID.randomUUID().toString()
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
+        put("event_id", eventId)
         put("event_name", eventName)
         put("properties", properties.toJSONObject())
         put("timestamp", timestamp)
@@ -82,12 +84,13 @@ internal data class QueuedEvent(
             eventName = json.getString("event_name"),
             properties = json.optJSONObject("properties")?.toMap() ?: emptyMap(),
             timestamp = json.getLong("timestamp"),
-            sessionId = json.getString("session_id")
+            sessionId = json.getString("session_id"),
+            eventId = json.optString("event_id").takeIf { it.isNotBlank() } ?: java.util.UUID.randomUUID().toString()
         )
     }
 }
 
-/** POST /api/v1/installs request body */
+/** POST /v1/installs request body */
 internal data class InstallRequestBody(
     val appId: String,
     val deviceId: String,
@@ -97,7 +100,6 @@ internal data class InstallRequestBody(
     val screenResolution: String?,
     val timezone: String?,
     val language: String?,
-    val gaid: String?,
     val installReferrer: String?
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
@@ -105,17 +107,16 @@ internal data class InstallRequestBody(
         put("device_id", deviceId)
         put("platform", "android")
         put("sdk_version", sdkVersion)
-        put("os_version", osVersion ?: JSONObject.NULL)
-        put("device_model", deviceModel ?: JSONObject.NULL)
-        put("screen_resolution", screenResolution ?: JSONObject.NULL)
-        put("timezone", timezone ?: JSONObject.NULL)
-        put("language", language ?: JSONObject.NULL)
-        put("gaid", gaid ?: JSONObject.NULL)
-        put("install_referrer", installReferrer ?: JSONObject.NULL)
+        osVersion?.let { put("os_version", it) }
+        deviceModel?.let { put("device_model", it) }
+        screenResolution?.let { put("screen_resolution", it) }
+        timezone?.let { put("timezone", it) }
+        language?.let { put("language", it) }
+        installReferrer?.let { put("install_referrer", it) }
     }
 }
 
-/** POST /api/v1/events batch request body */
+/** POST /v1/events batch request body */
 internal data class EventsBatchRequest(
     val appId: String,
     val deviceId: String,
