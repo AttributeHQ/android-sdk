@@ -1,3 +1,17 @@
+# 1.1.0-beta.3 — Referrer retries and delayed first open
+
+Prerelease for controlled integration testing.
+
+- Retry temporary Install Referrer errors, disconnects and timeouts instead of finalizing an organic install. Cache terminal results and ignore late callbacks.
+- Persist the first collected app-open timestamp before network/referrer waits, and send it unchanged on install retries.
+- Keep existing app-scoped installation identity and privacy defaults.
+
+Use `com.github.AttributeHQ:android-sdk:1.1.0-beta.3` from JitPack. Requires the compatible AttributeHQ API for first-open timing; older APIs may ignore the new field. Existing acknowledged installs are not reattributed by this upgrade.
+
+Validation: 49 unit/Robolectric tests and release assembly passed. Backend validation covers saved tracking links, delayed uploads, attribution windows and duplicate ingestion. Real Google Play installation/referrer handoff is deferred and has not been proven by these fixtures. Meta/X delivery and deferred deep linking are outside this release.
+
+---
+
 # 1.1.0-beta.2 — Android analytics and privacy beta
 
 Prerelease for controlled integration testing.

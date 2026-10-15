@@ -1,4 +1,4 @@
-# Android SDK data inventory — 1.1.0-beta.2
+# Android SDK data inventory — 1.1.0-beta.3
 
 This describes the SDK implementation for integrators preparing their app disclosures; it is not a completed Google Play Data safety declaration.
 
@@ -13,3 +13,5 @@ Requests use HTTPS to `api.attributehq.com`. This baseline does not collect GAID
 Version 1.1.0-beta.2 adds `initialCollectionEnabled` and `setCollectionEnabled()` to control SDK analytics collection. Disabling discards pending events and local identified-user/session state, while retaining installation identity and attribution. Requests already started may finish. This is not a server deletion API. See [privacy controls](PRIVACY_CONTROLS.md) for persistence failure handling and asynchronous completion semantics.
 
 Advertising-sharing preferences stay local unless `enableSandboxEvidenceUpload` is explicitly enabled. With that opt-in and collection enabled, the SDK sends sandbox permission observations to `/v1/mobile-evidence`, including package/app version, Android version/model, installation/evidence IDs, sequence, timestamps and application-tracking/sharing choices. Immutable event-time tickets and pending observations are also stored in preferences. Disabling collection purges them but preserves ordering. See [privacy controls](PRIVACY_CONTROLS.md) for retry, retention and withdrawal limits. Android partner delivery remains disabled. The host app remains responsible for its consent UI and other SDKs. Published 1.1.0-beta.1 has none of these new APIs.
+
+Beta.3 persists the first collected app-open timestamp locally and sends it as `first_open_time_ms` with install uploads so offline retries use the original collection time. This is client-reported telemetry, not a verified Google installation timestamp.

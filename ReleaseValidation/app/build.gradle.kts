@@ -18,4 +18,4 @@ android {
     }
     kotlinOptions { jvmTarget = "1.8" }
 }
-dependencies { implementation("com.attributehq:sdk:1.1.0-beta.2") }
+dependencies { implementation("com.attributehq:sdk:1.1.0-beta.3") }

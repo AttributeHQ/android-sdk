@@ -20,6 +20,18 @@ class ReliableDeliveryTest {
     private fun config() = ResolvedConfiguration.resolve(AttributeHQConfiguration("ak_test", "000f810a-d493-42d5-bd7d-64de2d0e7188", batchSize = 10, flushIntervalSeconds = 3600))
     private fun event(name: String = "signup") = QueuedEvent(name, emptyMap(), 1700000000000, "session")
 
+    @Test fun `first collected open survives restart and is serialized unchanged`() {
+        val appId = UUID.randomUUID().toString()
+        val first = 1700000000000L
+        assertEquals(first, storage(appId).firstOpenTime(first))
+        val restarted = storage(appId)
+        assertEquals(first, restarted.firstOpenTime(first + 86400000))
+        val body = InstallRequestBody(appId, "device", "test", null, null,
+            null, null, null, "click_id=test", restarted.firstOpenTime())
+        assertEquals(first, body.toJson().getLong("first_open_time_ms"))
+        assertNull(storage().firstOpenTime(-1))
+    }
+
     @Test fun `in-flight batch survives restart with the same event IDs`() {
         val scheduler = Executors.newSingleThreadScheduledExecutor()
         try {

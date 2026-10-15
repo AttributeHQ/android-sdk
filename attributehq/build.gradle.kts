@@ -58,7 +58,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.attributehq"
                 artifactId = "sdk"
-                version = "1.1.0-beta.2"
+                version = "1.1.0-beta.3"
 
                 pom {
                     name.set("AttributeHQ Android SDK")

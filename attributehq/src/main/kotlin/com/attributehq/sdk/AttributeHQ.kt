@@ -97,6 +97,7 @@ object AttributeHQ {
         val ticket = state.ticket() ?: return
         val resolved = config ?: return
         deviceId = getOrCreateDeviceId(storage) ?: return
+        storage.firstOpenTime() ?: return
         if (resolved.enableSandboxEvidenceUpload && evidenceUploader == null) {
             evidenceUploader = EvidenceUploader(storage, resolved.appId, deviceId!!,
                 dispatch = { task -> executor.execute(task) }, send = { body, acknowledge ->
@@ -120,10 +121,29 @@ object AttributeHQ {
         } else queue?.resume()
         referrerReady = false
         installInFlight = false
-        InstallReferrerManager.getInstallReferrer(context, executor) { referrer ->
+        fetchInstallReferrer(context, storage, state, ticket)
+
+    }
+
+    private fun fetchInstallReferrer(context: Context, storage: Storage, state: PrivacyState, ticket: Long) {
+        if (!state.permits(ticket)) return
+        if (storage.getBool("installed") || storage.getBool("install_referrer_resolved")) {
+            installReferrer = storage.getString("install_referrer")
+            referrerReady = true
+            trackInstallIfNeeded(context, storage)
+            return
+        }
+        InstallReferrerManager.getInstallReferrer(context, executor) { referrer, retryable ->
             executor.execute {
                 if (!state.permits(ticket)) return@execute
-                if (!referrer.isNullOrBlank()) storage.setString("install_referrer", referrer)
+                if (retryable) {
+                    // A timeout or temporary Play failure is not an organic result.
+                    executor.schedule({ fetchInstallReferrer(context, storage, state, ticket) },
+                        30, java.util.concurrent.TimeUnit.SECONDS)
+                    return@execute
+                }
+                if (!referrer.isNullOrBlank() && !storage.setString("install_referrer", referrer)) return@execute
+                storage.setBool("install_referrer_resolved", true)
                 installReferrer = referrer?.takeIf { it.isNotBlank() } ?: storage.getString("install_referrer")
                 referrerReady = true
                 trackInstallIfNeeded(context, storage)
@@ -355,7 +375,8 @@ object AttributeHQ {
             screenResolution = deviceInfo.screenResolution,
             timezone = deviceInfo.timezone,
             language = deviceInfo.language,
-            installReferrer = installReferrer
+            installReferrer = installReferrer,
+            firstOpenTimeMs = storage.firstOpenTime() ?: return
         ).toJson()
 
         installInFlight = true

@@ -9,34 +9,42 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** Fetch Play's referrer once, with a bounded wait even when the service disconnects. */
 internal object InstallReferrerManager {
-    fun getInstallReferrer(context: Context, scheduler: ScheduledExecutorService, callback: (String?) -> Unit) {
+    fun getInstallReferrer(context: Context, scheduler: ScheduledExecutorService, callback: (String?, Boolean) -> Unit) {
+        val client = try { InstallReferrerClient.newBuilder(context).build() }
+        catch (_: Exception) { callback(null, true); return }
+        fetch(client, scheduler, callback = callback)
+    }
+
+    internal fun fetch(connection: InstallReferrerClient, scheduler: ScheduledExecutorService,
+                       timeoutMillis: Long = 5000, callback: (String?, Boolean) -> Unit) {
         val finished = AtomicBoolean(false)
-        var client: InstallReferrerClient? = null
-        val finish: (String?) -> Unit = { value ->
+        val finish: (String?, Boolean) -> Unit = { value, retryable ->
             if (finished.compareAndSet(false, true)) {
-                try { client?.endConnection() } catch (_: Exception) { }
-                callback(value)
+                try { connection.endConnection() } catch (_: Exception) { }
+                callback(value, retryable)
             }
         }
-        val timeout = scheduler.schedule({ finish(null) }, 5, TimeUnit.SECONDS)
+        val timeout = scheduler.schedule({ finish(null, true) }, timeoutMillis, TimeUnit.MILLISECONDS)
         try {
-            val connection = InstallReferrerClient.newBuilder(context).build()
-            client = connection
             connection.startConnection(object : InstallReferrerStateListener {
                 override fun onInstallReferrerSetupFinished(responseCode: Int) {
-                    val referrer = if (responseCode == InstallReferrerClient.InstallReferrerResponse.OK) {
-                        try { connection.installReferrer.installReferrer } catch (_: Exception) { null }
-                    } else null
-                    finish(referrer)
+                    when (responseCode) {
+                        InstallReferrerClient.InstallReferrerResponse.OK -> {
+                            try { finish(connection.installReferrer.installReferrer, false) }
+                            catch (_: Exception) { finish(null, true) }
+                        }
+                        InstallReferrerClient.InstallReferrerResponse.FEATURE_NOT_SUPPORTED -> finish(null, false)
+                        else -> finish(null, true)
+                    }
                     timeout.cancel(false)
                 }
                 override fun onInstallReferrerServiceDisconnected() {
-                    finish(null)
+                    finish(null, true)
                     timeout.cancel(false)
                 }
             })
         } catch (_: Exception) {
-            finish(null)
+            finish(null, true)
             timeout.cancel(false)
         }
     }

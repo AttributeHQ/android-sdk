@@ -32,6 +32,12 @@ internal class Storage internal constructor(context: Context, private val appId:
 
     // endregion
 
+    /** Freeze the first collected app open before any network/referrer wait. */
+    fun firstOpenTime(now: Long = System.currentTimeMillis()): Long? {
+        getLong("first_open_time_ms")?.let { return it }
+        return now.takeIf { it > 0 && setLong("first_open_time_ms", it) }
+    }
+
     // region Long
 
     fun setLong(key: String, value: Long): Boolean =

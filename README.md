@@ -2,7 +2,7 @@
 
 Lightweight Android attribution SDK for [AttributeHQ](https://attributehq.com). Track installs, events, and revenue with Google Play Install Referrer support, and offline event queueing.
 
-**1.1.0-beta.2 — analytics and privacy beta:** 46 tests, release builds and live emulator evidence/offline recovery checks have passed. The public JitPack package also passed a fresh independent consumer build. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
+**1.1.0-beta.3 — tracking-link attribution beta:** 49 tests and release builds pass. This release retries temporary referrer failures and persists first collected open for delayed uploads. Google Play referrer attribution and ad-network delivery remain separate validation gates. See [release notes](RELEASE_NOTES.md).
 
 ## Requirements
 
@@ -30,7 +30,7 @@ Then add the beta dependency in your app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.AttributeHQ:android-sdk:1.1.0-beta.2")
+    implementation("com.github.AttributeHQ:android-sdk:1.1.0-beta.3")
 }
 ```
 
