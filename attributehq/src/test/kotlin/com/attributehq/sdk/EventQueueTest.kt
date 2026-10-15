@@ -82,6 +82,15 @@ class EventQueueTest {
     }
 
     @Test
+    fun `batch preserves known environment and omits unknown`() {
+        for (environment in listOf(null, "sandbox", "production")) {
+            val json = EventsBatchRequest("app", "device", emptyList(), "test", environment).toJson()
+            assertEquals(environment != null, json.has("environment"))
+            if (environment != null) assertEquals(environment, json.getString("environment"))
+        }
+    }
+
+    @Test
     fun `EventsBatchRequest serializes correctly`() {
         val events = listOf(
             QueuedEvent("purchase", mapOf("amount" to 500), 1000L, "s1")

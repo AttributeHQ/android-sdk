@@ -125,7 +125,8 @@ internal data class EventsBatchRequest(
     val appId: String,
     val deviceId: String,
     val events: List<QueuedEvent>,
-    val sdkVersion: String
+    val sdkVersion: String,
+    val environment: String? = null
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("app_id", appId)
@@ -134,6 +135,7 @@ internal data class EventsBatchRequest(
             events.forEach { put(it.toJson()) }
         })
         put("sdk_version", sdkVersion)
+        environment?.let { put("environment", it) }
     }
 }
 

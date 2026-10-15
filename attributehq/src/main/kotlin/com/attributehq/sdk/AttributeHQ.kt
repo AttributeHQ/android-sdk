@@ -412,7 +412,8 @@ object AttributeHQ {
             appId = config.appId,
             deviceId = deviceId,
             events = events,
-            sdkVersion = SDK_VERSION
+            sdkVersion = SDK_VERSION,
+            environment = Storage.getInstance().installEnvironment()
         ).toJson()
 
         NetworkClient.post(
