@@ -83,3 +83,5 @@ Tag `1.1.0-beta.3` at `9df3381` passed 49 unit/Robolectric tests, release assemb
 ## Install environment candidate — 15 October 2026
 
 52 unit/Robolectric tests, release assembly and lint passed. Tests cover explicit production/sandbox, unknown omission, diagnostic incompatibility, restart/reconfiguration stability, legacy pending and acknowledged installation protection, and serialized environment/first-open evidence. React Native Android bridge compiled against this source dependency. No new live request, Google Play handoff or ad-network delivery was tested. Public beta.4 distribution is a separate gate.
+
+Beta.4 public verification: JitPack built tag `1.1.0-beta.4` at `0d5e001`. A separate consumer compiled the public environment API and assembled against the public artifact, with no source substitution or local Maven repository. The React Native beta.3 packed bridge also compiled against this public coordinate.
