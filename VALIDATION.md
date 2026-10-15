@@ -75,3 +75,7 @@ The temporary key was revoked in the dashboard and the API rejected a replay wit
 ## Public beta.2 distribution — 2026-10-14
 
 JitPack built tag `1.1.0-beta.2` at `946c8727da63b40558c8420ca70e11648572fef1`. All 16 Kotlin source files match the reviewed code. A fresh external consumer with an empty dependency cache, no SDK source dependency and no local Maven repository built successfully using `com.github.AttributeHQ:android-sdk:1.1.0-beta.2`. Its resolved AAR is byte-identical to the downloaded public package. The GitHub prerelease is published. Earlier unpublished-candidate notes above describe prior checkpoints; beta.2 is now available for controlled integration testing.
+
+## Beta.3 distribution — 15 October 2026
+
+Tag `1.1.0-beta.3` at `9df3381` passed 49 unit/Robolectric tests, release assembly and lint. JitPack built the tagged release successfully. All published Kotlin sources match the tested checkout. A separate Android consumer built against the public JitPack coordinate, with no source dependency or local Maven repository. Backend commit `05c7b77` is deployed with migration 020 and a passing public readiness check. Real Google Play referrer handoff remains deferred; no new emulator/live ingestion test or ad-network postback was performed for this release. React Native's currently published beta remains pinned to Android beta.2.
