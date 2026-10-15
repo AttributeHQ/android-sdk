@@ -1,5 +1,7 @@
 package com.attributehq.sdk
 
+enum class AttributeHQEnvironment(val wireValue: String) { SANDBOX("sandbox"), PRODUCTION("production") }
+
 /**
  * Public SDK configuration. Pass to [AttributeHQ.initialize].
  *
@@ -21,7 +23,9 @@ data class AttributeHQConfiguration(
     /** Opt-in diagnostic transport only; never sends production postbacks. */
     var enableSandboxEvidenceUpload: Boolean = false,
     /** Separate app-level tracking decision; null preserves saved state, new installs default false. */
-    var initialApplicationTrackingEnabled: Boolean? = null
+    var initialApplicationTrackingEnabled: Boolean? = null,
+    /** Declared install environment; null remains unknown. Frozen on first collection. */
+    var environment: AttributeHQEnvironment? = null
 )
 
 /** Internal validated configuration with clamped values. */
@@ -34,7 +38,8 @@ internal data class ResolvedConfiguration(
     val maxQueueSize: Int,
     val enableDebugLogging: Boolean,
     val requestTimeoutMs: Long,
-    val enableSandboxEvidenceUpload: Boolean = false
+    val enableSandboxEvidenceUpload: Boolean = false,
+    val environment: AttributeHQEnvironment? = null
 ) {
     companion object {
         fun resolve(config: AttributeHQConfiguration): ResolvedConfiguration {
@@ -43,6 +48,9 @@ internal data class ResolvedConfiguration(
                 "App ID must be a UUID from the AttributeHQ dashboard"
             }
 
+            require(!(config.environment == AttributeHQEnvironment.PRODUCTION && config.enableSandboxEvidenceUpload)) {
+                "Production environment cannot enable sandbox evidence upload"
+            }
             return ResolvedConfiguration(
                 apiKey = config.apiKey,
                 appId = config.appId,
@@ -52,7 +60,8 @@ internal data class ResolvedConfiguration(
                 maxQueueSize = config.maxQueueSize.coerceAtLeast(10),
                 enableDebugLogging = config.enableDebugLogging,
                 requestTimeoutMs = config.requestTimeoutMs.coerceIn(5_000L, Int.MAX_VALUE.toLong()),
-                enableSandboxEvidenceUpload = config.enableSandboxEvidenceUpload
+                enableSandboxEvidenceUpload = config.enableSandboxEvidenceUpload,
+                environment = config.environment ?: if (config.enableSandboxEvidenceUpload) AttributeHQEnvironment.SANDBOX else null
             )
         }
     }

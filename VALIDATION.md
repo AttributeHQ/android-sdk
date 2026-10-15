@@ -79,3 +79,7 @@ JitPack built tag `1.1.0-beta.2` at `946c8727da63b40558c8420ca70e11648572fef1`. 
 ## Beta.3 distribution — 15 October 2026
 
 Tag `1.1.0-beta.3` at `9df3381` passed 49 unit/Robolectric tests, release assembly and lint. JitPack built the tagged release successfully. All published Kotlin sources match the tested checkout. A separate Android consumer built against the public JitPack coordinate, with no source dependency or local Maven repository. Backend commit `05c7b77` is deployed with migration 020 and a passing public readiness check. Real Google Play referrer handoff remains deferred; no new emulator/live ingestion test or ad-network postback was performed for this release. React Native's currently published beta remains pinned to Android beta.2.
+
+## Install environment candidate — 15 October 2026
+
+52 unit/Robolectric tests, release assembly and lint passed. Tests cover explicit production/sandbox, unknown omission, diagnostic incompatibility, restart/reconfiguration stability, legacy pending and acknowledged installation protection, and serialized environment/first-open evidence. React Native Android bridge compiled against this source dependency. No new live request, Google Play handoff or ad-network delivery was tested. Public beta.4 distribution is a separate gate.

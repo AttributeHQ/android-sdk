@@ -5,6 +5,17 @@ import org.junit.Test
 
 class ConfigurationTest {
 
+    @Test fun `environment defaults unknown and diagnostics imply sandbox`() {
+        val config = AttributeHQConfiguration("ak_test", "000f810a-d493-42d5-bd7d-64de2d0e7188")
+        assertNull(ResolvedConfiguration.resolve(config).environment)
+        config.enableSandboxEvidenceUpload = true
+        assertEquals(AttributeHQEnvironment.SANDBOX, ResolvedConfiguration.resolve(config).environment)
+        config.environment = AttributeHQEnvironment.PRODUCTION
+        assertThrows(IllegalArgumentException::class.java) { ResolvedConfiguration.resolve(config) }
+        config.enableSandboxEvidenceUpload = false
+        assertEquals(AttributeHQEnvironment.PRODUCTION, ResolvedConfiguration.resolve(config).environment)
+    }
+
     @Test
     fun `valid config resolves successfully`() {
         val config = AttributeHQConfiguration(apiKey = "ak_test123", appId = "000f810a-d493-42d5-bd7d-64de2d0e7188")

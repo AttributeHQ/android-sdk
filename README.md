@@ -137,3 +137,13 @@ See [the SDK data inventory](DATA_COLLECTION.md) when preparing your app’s pri
 ## License
 
 MIT
+
+## Install environment
+
+```kotlin
+val config = AttributeHQConfiguration(apiKey = "YOUR_SDK_KEY", appId = "YOUR_APP_ID")
+config.environment = AttributeHQEnvironment.PRODUCTION
+AttributeHQ.initialize(context, config)
+```
+
+Use sandbox for sandbox purchase testing and production for production purchase reporting. Set this before the first initialization that collects an install. Omission remains unknown; enabling sandbox diagnostic upload implies sandbox and cannot be combined with production. Environment and first-open evidence are frozen for retries. Existing acknowledged installs are not relabeled; older Android pending installs with saved first-open evidence also remain unknown. Changing configuration does not migrate an existing installation. This is app-declared evidence, not store attestation, consent, or authorization for ad-network postbacks. RevenueCat still needs the matching AttributeHQ app-instance ID in its subscriber attributes.

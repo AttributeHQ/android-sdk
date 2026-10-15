@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** SDK version constant */
-const val SDK_VERSION = "1.1.0-beta.3"
+const val SDK_VERSION = "1.1.0-beta.4"
 
 // region Public Types
 
@@ -101,7 +101,8 @@ internal data class InstallRequestBody(
     val timezone: String?,
     val language: String?,
     val installReferrer: String?,
-    val firstOpenTimeMs: Long? = null
+    val firstOpenTimeMs: Long? = null,
+    val environment: String? = null
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("app_id", appId)
@@ -115,6 +116,7 @@ internal data class InstallRequestBody(
         language?.let { put("language", it) }
         installReferrer?.let { put("install_referrer", it) }
         firstOpenTimeMs?.let { put("first_open_time_ms", it) }
+        environment?.let { put("environment", it) }
     }
 }
 

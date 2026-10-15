@@ -38,6 +38,19 @@ internal class Storage internal constructor(context: Context, private val appId:
         return now.takeIf { it > 0 && setLong("first_open_time_ms", it) }
     }
 
+    /** Freeze both fields before network work. Legacy pending installs retain unknown environment. */
+    fun prepareInstallEvidence(environment: AttributeHQEnvironment?, now: Long = System.currentTimeMillis()): Boolean {
+        if (getString("install_environment") != null) return getLong("first_open_time_ms") != null
+        val existingTime = getLong("first_open_time_ms")
+        val first = existingTime ?: now
+        if (first <= 0) return false
+        val declared = if (existingTime != null || getBool("installed")) "unknown" else environment?.wireValue ?: "unknown"
+        return prefs.edit().putLong(prefixed("first_open_time_ms"), first)
+            .putString(prefixed("install_environment"), declared).commit()
+    }
+
+    fun installEnvironment(): String? = getString("install_environment")?.takeIf { it == "sandbox" || it == "production" }
+
     // region Long
 
     fun setLong(key: String, value: Long): Boolean =

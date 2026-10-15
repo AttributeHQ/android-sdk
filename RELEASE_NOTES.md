@@ -70,3 +70,7 @@ JitPack built tag `1.1.0-beta.1` at commit `b4a09db77a9109bf30859c1edb006b9d9244
 A fresh independent Android consumer built successfully (32 tasks) with empty dependency caches, no local Maven repository and no SDK source dependency. Its resolved AAR matches the independently downloaded public artifact by SHA-256.
 
 Use `com.github.AttributeHQ:android-sdk:1.1.0-beta.1` from `https://jitpack.io`; see [installation instructions](README.md#installation).
+
+## 1.1.0-beta.4 — install environment
+
+Optional sandbox/production configuration is frozen with first-open evidence before collection sends an install. Unset stays unknown; sandbox diagnostics imply sandbox and reject explicit production. Existing acknowledged installations are not relabeled; legacy pending first-open evidence remains unknown. This supports same-environment revenue identity matching, not paid attribution or store attestation.

@@ -97,7 +97,7 @@ object AttributeHQ {
         val ticket = state.ticket() ?: return
         val resolved = config ?: return
         deviceId = getOrCreateDeviceId(storage) ?: return
-        storage.firstOpenTime() ?: return
+        if (!storage.prepareInstallEvidence(resolved.environment)) return
         if (resolved.enableSandboxEvidenceUpload && evidenceUploader == null) {
             evidenceUploader = EvidenceUploader(storage, resolved.appId, deviceId!!,
                 dispatch = { task -> executor.execute(task) }, send = { body, acknowledge ->
@@ -376,7 +376,8 @@ object AttributeHQ {
             timezone = deviceInfo.timezone,
             language = deviceInfo.language,
             installReferrer = installReferrer,
-            firstOpenTimeMs = storage.firstOpenTime() ?: return
+            firstOpenTimeMs = storage.getLong("first_open_time_ms") ?: return,
+            environment = storage.installEnvironment()
         ).toJson()
 
         installInFlight = true

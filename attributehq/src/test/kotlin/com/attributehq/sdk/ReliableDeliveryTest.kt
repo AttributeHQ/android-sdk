@@ -20,6 +20,33 @@ class ReliableDeliveryTest {
     private fun config() = ResolvedConfiguration.resolve(AttributeHQConfiguration("ak_test", "000f810a-d493-42d5-bd7d-64de2d0e7188", batchSize = 10, flushIntervalSeconds = 3600))
     private fun event(name: String = "signup") = QueuedEvent(name, emptyMap(), 1700000000000, "session")
 
+    @Test fun `install environment and time survive restart and conflicting configuration`() {
+        for (environment in listOf(null, AttributeHQEnvironment.PRODUCTION, AttributeHQEnvironment.SANDBOX)) {
+            val app = UUID.randomUUID().toString()
+            val store = storage(app)
+            assertTrue(store.prepareInstallEvidence(environment, 1700000000000))
+            val restarted = storage(app)
+            assertTrue(restarted.prepareInstallEvidence(AttributeHQEnvironment.SANDBOX, 1800000000000))
+            assertEquals(environment?.wireValue, restarted.installEnvironment())
+            assertEquals(1700000000000L, restarted.getLong("first_open_time_ms"))
+            val body = InstallRequestBody(app, "device", "test", null, null, null, null, null,
+                installReferrer = null, firstOpenTimeMs = restarted.getLong("first_open_time_ms"), environment = restarted.installEnvironment()).toJson()
+            assertEquals(environment != null, body.has("environment"))
+            if (environment != null) assertEquals(environment.wireValue, body.getString("environment"))
+        }
+    }
+
+    @Test fun `legacy pending and acknowledged installs cannot become production`() {
+        for (installed in listOf(false, true)) {
+            val store = storage()
+            if (installed) store.setBool("installed", true) else store.firstOpenTime(1700000000000)
+            assertTrue(store.prepareInstallEvidence(AttributeHQEnvironment.PRODUCTION))
+            assertNull(store.installEnvironment())
+            assertTrue(store.prepareInstallEvidence(AttributeHQEnvironment.SANDBOX))
+            assertNull(store.installEnvironment())
+        }
+    }
+
     @Test fun `first collected open survives restart and is serialized unchanged`() {
         val appId = UUID.randomUUID().toString()
         val first = 1700000000000L
